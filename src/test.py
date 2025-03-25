@@ -6,32 +6,36 @@ from tqdm.auto import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-from utils.transformer_util import extract_embeddings, fetch_similar
 
 # Load image encoder
-model_ckpt = "nateraw/vit-base-beans"
+model_ckpt = "google/vit-base-patch16-224-in21k"
 extractor = AutoFeatureExtractor.from_pretrained(model_ckpt)
 model = AutoModel.from_pretrained(model_ckpt)
 hidden_dim = model.config.hidden_size
 
 # Load the dataset
-dataset = load_dataset("beans")
-
-labels = dataset["train"].features["labels"].names
-label2id, id2label = dict(), dict()
-
-for i, label in enumerate(labels):
-    label2id[label] = i
-    id2label[i] = label
-
-num_samples = 100
+dataset = load_dataset("dream-textures/textures-color-normal-1k")
+num_samples = 200
 seed = random.randint(0, 1000)
-candidate_subset = dataset["train"].shuffle(seed=seed).select(range(num_samples))
+candidate_subset = dataset["train"].shuffle(seed=seed).select(range(num_samples))["color"]
 
-# Extract embeddings for the candidate images
+# Display 10 random images from the dataset
+fig, axes = plt.subplots(1, 10, figsize=(20, 5))
+for i, ax in enumerate(axes):
+    sample = candidate_subset[i]
+    ax.imshow(np.array(sample))
+    ax.axis("off")
+    ax.set_title(f"Image {i+1}")
+plt.tight_layout()
+plt.savefig("dataset_images.png")
+
+# Test image
+test_idx = np.random.choice(dataset["train"].num_rows)
+test_sample = dataset["train"][test_idx]["color"]
+
+# Define transformation chain
 transformation_chain = T.Compose(
     [
-        # We first resize the input image to 256x256 and then we take center crop.
         T.Resize(int((256 / 224) * extractor.size["height"])),
         T.CenterCrop(extractor.size["height"]),
         T.ToTensor(),
@@ -39,60 +43,47 @@ transformation_chain = T.Compose(
     ]
 )
 
-batch_size = 24
+# Extract embeddings for candidate_subset
 device = "cuda" if torch.cuda.is_available() else "cpu"
-extract_fn = extract_embeddings(model.to(device), transformation_chain)
-candidate_subset_emb = candidate_subset.map(extract_fn, batched=True, batch_size=24)
+model = model.to(device)
 
-candidate_ids = []
+def extract_embedding(image):
+    if image.mode != "RGB":
+        image = image.convert("RGB")  # Convert grayscale to RGB
+    image = transformation_chain(image).unsqueeze(0).to(device)
+    with torch.no_grad():
+        embedding = model(image).last_hidden_state.mean(dim=1).squeeze().cpu()
+    return embedding
 
-for id in tqdm(range(len(candidate_subset_emb))):
-    label = candidate_subset_emb[id]["labels"]
+candidate_embeddings = []
+for image in tqdm(candidate_subset, desc="Extracting candidate embeddings"):
+    embedding = extract_embedding(image)
+    candidate_embeddings.append(embedding)
 
-    # Create a unique indentifier.
-    entry = str(id) + "_" + str(label)
+candidate_embeddings = torch.stack(candidate_embeddings)
 
-    candidate_ids.append(entry)
+# Extract embedding for test image
+test_embedding = extract_embedding(test_sample)
 
-all_candidate_embeddings = np.array(candidate_subset_emb["embeddings"])
-all_candidate_embeddings = torch.from_numpy(all_candidate_embeddings)
+# Compute cosine similarities
+cosine_similarities = torch.nn.functional.cosine_similarity(
+    test_embedding.unsqueeze(0), candidate_embeddings
+)
 
-# Test image
-test_idx = np.random.choice(len(dataset["test"]))
-test_sample = dataset["test"][test_idx]["image"]
-test_label = dataset["test"][test_idx]["labels"]
+# Find top 5 most similar images
+top_k = 5
+top_k_indices = torch.topk(cosine_similarities, top_k).indices
 
-# Fetch similar images
-sim_ids, sim_labels = fetch_similar(test_sample, transformation_chain, device, model, all_candidate_embeddings, candidate_ids, top_k=5)
+# Display the test image and top 5 similar images
+fig, axes = plt.subplots(1, top_k + 1, figsize=(20, 5))
+axes[0].imshow(np.array(test_sample))
+axes[0].axis("off")
+axes[0].set_title("Test Image")
 
-# Plot the images
-def plot_images(images, labels):
-    if not isinstance(labels, list):
-        labels = labels.tolist()
+for i, idx in enumerate(top_k_indices):
+    axes[i + 1].imshow(np.array(candidate_subset[idx]))
+    axes[i + 1].axis("off")
+    axes[i + 1].set_title(f"Similar {i+1}")
 
-    plt.figure(figsize=(20, 10))
-    columns = 6
-    for (i, image) in enumerate(images):
-        label_id = int(labels[i])
-        ax = plt.subplot(int(len(images) / columns + 1), columns, i + 1)
-        if i == 0:
-            ax.set_title("Query Image\n" + "Label: {}".format(id2label[label_id]))
-        else:
-            ax.set_title(
-                "Similar Image # " + str(i) + "\nLabel: {}".format(id2label[label_id])
-            )
-        plt.imshow(np.array(image).astype("int"))
-        plt.savefig("similar_images.png")
-        plt.axis("off")
-
-
-images = []
-labels = []
-
-for id, label in zip(sim_ids, sim_labels):
-    images.append(candidate_subset_emb[id]["image"])
-    labels.append(candidate_subset_emb[id]["labels"])
-
-images.insert(0, test_sample)
-labels.insert(0, test_label)
-plot_images(images, labels)
+plt.tight_layout()
+plt.savefig("similar_images.png")
