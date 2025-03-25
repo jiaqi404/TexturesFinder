@@ -2,7 +2,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QWidget, QScrollArea, QHBoxLayout
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
-from utils.transformer_util import fetch_similar
+from utils.transformer_util import fetch_similar, load_model, load_dataset
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -11,7 +11,12 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 720, 720)
 
         self.initUI()
-
+        self.model, self.extractor, self.device = load_model()
+        print("Model loaded")
+        self.candidate_subset = load_dataset()
+        print("Dataset loaded")
+    
+    # UI
     def initUI(self):
         # Main layout
         self.central_widget = QWidget()
@@ -23,12 +28,14 @@ class MainWindow(QMainWindow):
 
         # Left section layout
         self.left_layout = QVBoxLayout()
-        self.browse_button = QPushButton("Browse Image")
+        self.browse_button = QPushButton("选择图片")
         self.browse_button.clicked.connect(self.browse_image)
         self.left_layout.addWidget(self.browse_button)
 
+        self.param_label = QLabel("输出相似图片数量")
+        self.left_layout.addWidget(self.param_label)
         self.param_input = QLineEdit()
-        self.param_input.setPlaceholderText("Enter an integer parameter")
+        self.param_input.setPlaceholderText("输入参数")
         self.left_layout.addWidget(self.param_input)
 
         # Wrap the left layout in a QWidget to control its width
@@ -38,7 +45,7 @@ class MainWindow(QMainWindow):
         self.horizontal_layout.addWidget(self.left_widget)
 
         # Right section layout
-        self.image_label = QLabel("No image selected")
+        self.image_label = QLabel("请先选择一张图片")
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setFixedSize(320, 240)
         self.horizontal_layout.addWidget(self.image_label, stretch=1)  # Allow the right section to expand
@@ -47,7 +54,7 @@ class MainWindow(QMainWindow):
         self.layout.addLayout(self.horizontal_layout)
 
         # Execute button
-        self.execute_button = QPushButton("Find Similar Images")
+        self.execute_button = QPushButton("查找相似贴图")
         self.execute_button.clicked.connect(self.find_similar_images)
         self.layout.addWidget(self.execute_button)
 
@@ -81,7 +88,7 @@ class MainWindow(QMainWindow):
             return
 
         # Fetch similar images
-        similar_images = fetch_similar(self.selected_image_path, param)
+        similar_images = fetch_similar(self.model, self.extractor, self.device, self.candidate_subset, self.selected_image_path, param)
 
         # Clear previous results
         for i in reversed(range(self.scroll_area_layout.count())):

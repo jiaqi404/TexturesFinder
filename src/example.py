@@ -1,5 +1,4 @@
 from transformers import AutoFeatureExtractor, AutoModel
-from datasets import load_dataset
 import torchvision.transforms as T
 import torch
 from tqdm.auto import tqdm
@@ -18,18 +17,13 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model = model.to(device)
 
 # 加载数据集
-dataset = load_dataset("dream-textures/textures-color-normal-1k")
-# 去掉前20张图片，因为他们被选择进行了预处理
-dataset["train"] = dataset["train"].select(range(20, dataset["train"].num_rows))
-# 在剩下的中随机200张图片作为候选集
-num_samples = 200
-seed = random.randint(0, 1000)
-candidate_subset = dataset["train"].shuffle(seed=seed).select(range(num_samples))["color"]
+dataset_path = Path("dataset")
+dataset_images = list(dataset_path.glob("*.png"))
+candidate_subset = [Image.open(img_path) for img_path in dataset_images]
 
 # 加载 dataset_expansion/original 下的图片
 expansion_path = Path("dataset_expansion/original")
 expansion_images = list(expansion_path.glob("*.png"))
-# 将图片并入候选集
 for img_path in expansion_images:
     image = Image.open(img_path)
     candidate_subset.append(image)
@@ -90,4 +84,4 @@ for i, idx in enumerate(top_k_indices):
     axes[i + 1].set_title(f"Similar {i+1}")
 
 plt.tight_layout()
-plt.savefig("outputs/similar_images.png")
+plt.savefig("similar_images.png")
