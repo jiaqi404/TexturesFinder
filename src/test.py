@@ -27,7 +27,7 @@ for i, ax in enumerate(axes):
     ax.axis("off")
     ax.set_title(f"Image {i+1}")
 plt.tight_layout()
-plt.savefig("dataset_images.png")
+plt.savefig("dataset_images2.png")
 
 # Test image
 test_idx = np.random.choice(dataset["train"].num_rows)
@@ -86,4 +86,4 @@ for i, idx in enumerate(top_k_indices):
     axes[i + 1].set_title(f"Similar {i+1}")
 
 plt.tight_layout()
-plt.savefig("similar_images.png")
+plt.savefig("similar_images2.png")
