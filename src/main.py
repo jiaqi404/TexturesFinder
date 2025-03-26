@@ -19,6 +19,13 @@ class MainWindow(QMainWindow):
         print("Model loaded")
         self.candidate_subset_path, self.candidate_subset = load_dataset()
         print("Dataset loaded")
+
+    def update_speed_selection(self):
+        sender = self.sender()
+        for index, button in enumerate(self.speed_toggle_buttons):
+            button.setChecked(button == sender)
+            if button == sender:
+                self.selected_speed = index
     
     def initUI(self):
         self.central_widget = QWidget()
@@ -40,10 +47,10 @@ class MainWindow(QMainWindow):
 
         # 输入部分左侧
         self.left_layout = QVBoxLayout()
-        self.browse_label = QLabel("1. 从本地选择一张贴图，或随机一张测试贴图")
+        self.browse_label = QLabel("1. 选择图片")
         self.browse_label.setFont(bold_font)
         self.left_layout.addWidget(self.browse_label)
-        self.browse_button = QPushButton("选择贴图")
+        self.browse_button = QPushButton("本地贴图")
         self.browse_button.setFont(normal_font)
         self.browse_button.clicked.connect(self.browse_image)
         self.left_layout.addWidget(self.browse_button)
@@ -52,15 +59,47 @@ class MainWindow(QMainWindow):
         self.random_button.clicked.connect(self.random_test_image)
         self.left_layout.addWidget(self.random_button)
 
-        self.param_label = QLabel("2. 选择输出相似贴图的数量")
+        self.param_label = QLabel("2. 设置参数")
         self.param_label.setFont(bold_font)
         self.left_layout.addWidget(self.param_label)
-        self.param_input = QLineEdit()
-        self.param_input.setPlaceholderText("输入参数")
-        self.param_input.setFont(normal_font)
-        self.left_layout.addWidget(self.param_input)
 
-        self.execute_label = QLabel("3. 点击按钮，输出相似贴图")
+        # 输出图像数量参数
+        self.param_layout_1 = QHBoxLayout()
+        self.param_label_1 = QLabel("输出图像数量:")
+        self.param_label_1.setFont(normal_font)
+        self.param_layout_1.addWidget(self.param_label_1)
+        self.param_input_1 = QLineEdit()
+        self.param_input_1.setPlaceholderText("输入数量参数")
+        self.param_layout_1.addWidget(self.param_input_1)
+        self.param_input_1.setFont(normal_font)
+        self.left_layout.addLayout(self.param_layout_1)
+
+        # 查询速度参数
+        self.param_layout_2 = QHBoxLayout()
+        self.param_label_2 = QLabel("查询速度及精度:")
+        self.param_label_2.setFont(normal_font)
+        self.param_layout_2.addWidget(self.param_label_2)
+
+        # 创建三个档位的Toggle按钮
+        self.speed_toggle_layout = QHBoxLayout()
+        self.speed_toggle_buttons = []
+        self.speed_options = ["慢速/高精度", "标准速度/精度", "快速/低精度"]
+
+        for option in self.speed_options:
+            button = QPushButton(option)
+            button.setCheckable(True)
+            button.setFont(normal_font)
+            button.clicked.connect(self.update_speed_selection)
+            self.speed_toggle_buttons.append(button)
+            self.speed_toggle_layout.addWidget(button)
+
+        self.param_layout_2.addLayout(self.speed_toggle_layout)
+        self.left_layout.addLayout(self.param_layout_2)
+
+        self.speed_toggle_buttons[1].setChecked(True)
+        self.selected_speed = 1
+
+        self.execute_label = QLabel("3. 开始查询")
         self.execute_label.setFont(bold_font)
         self.left_layout.addWidget(self.execute_label)
         self.execute_button = QPushButton("查找相似贴图")
@@ -116,9 +155,15 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            param = int(self.param_input.text())
+            top_k = int(self.param_input_1.text())
         except ValueError:
-            self.image_label.setText("请先输出参数")
+            self.image_label.setText("请先填写参数")
+            return
+        
+        try:
+            n_components_label = int(self.selected_speed)
+        except ValueError:
+            self.image_label.setText("请先填写参数")
             return
 
         similar_images_path = fetch_similar(
@@ -128,7 +173,8 @@ class MainWindow(QMainWindow):
             self.candidate_subset_path, 
             self.candidate_subset, 
             self.selected_image_path, 
-            param
+            top_k,
+            n_components_label
         )
 
         # 清空过往的相似贴图

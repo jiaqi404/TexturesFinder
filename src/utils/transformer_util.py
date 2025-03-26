@@ -5,6 +5,10 @@ import torch
 from tqdm.auto import tqdm
 import random
 from pathlib import Path
+from sklearn.random_projection import SparseRandomProjection
+from sklearn.preprocessing import normalize
+from sklearn.neighbors import NearestNeighbors
+import numpy as np
 import PIL.Image as Image
 
 def load_model():
@@ -41,7 +45,7 @@ def random_test_image():
 
     return test_sample
 
-def fetch_similar(model, extractor, device, candidate_subset_path, candidate_subset, test_img_path, top_k):
+def fetch_similar(model, extractor, device, candidate_subset_path, candidate_subset, test_img_path, top_k, n_components_label):
     # 加载测试图像
     test_sample = Image.open(test_img_path)
 
@@ -57,11 +61,15 @@ def fetch_similar(model, extractor, device, candidate_subset_path, candidate_sub
 
     # 提取特征方法
     def extract_embedding(image):
+        # 如果图像不是 RGB 模式，将其转换为 RGB 模式
         if image.mode != "RGB":
-            image = image.convert("RGB")  # Convert grayscale to RGB
+            image = image.convert("RGB")
+
+        # 应用图像预处理链并将其转换为张量
         image = transformation_chain(image).unsqueeze(0).to(device)
+
         with torch.no_grad():
-            embedding = model(image).last_hidden_state.mean(dim=1).squeeze().cpu()
+            embedding = model(image).last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
         return embedding
 
     # 提取候选集中的图像特征
@@ -70,18 +78,36 @@ def fetch_similar(model, extractor, device, candidate_subset_path, candidate_sub
         embedding = extract_embedding(image)
         candidate_embeddings.append(embedding)
 
-    candidate_embeddings = torch.stack(candidate_embeddings)
+    # 使用随机投影降维以提高效率
+    candidate_embeddings = np.stack(candidate_embeddings)
+    if n_components_label == 0:
+        n_components = 384
+    elif n_components_label == 1:
+        n_components = 256
+    elif n_components_label == 2:
+        n_components = 128
+    else:
+        raise ValueError("Invalid n_components_label. Must be 0, 1, or 2.")
+    projector = SparseRandomProjection(n_components=n_components, random_state=42)
+    reduced_candidate_embeddings = projector.fit_transform(candidate_embeddings)
 
-    # 提取测试图像的特征
     test_embedding = extract_embedding(test_sample)
+    reduced_test_embedding = projector.transform(test_embedding.reshape(1, -1))
 
-    # 计算余弦相似度
-    cosine_similarities = torch.nn.functional.cosine_similarity(
-        test_embedding.unsqueeze(0), candidate_embeddings
+    # 使用BallTree计算最相似图像
+    normalized_candidates = normalize(reduced_candidate_embeddings, norm="l2")
+    normalized_test = normalize(reduced_test_embedding, norm="l2")
+
+    nn = NearestNeighbors(
+        n_neighbors=top_k,
+        metric="euclidean",
+        algorithm="ball_tree",
+        n_jobs=-1
     )
+    nn.fit(normalized_candidates)
+    distances, indices = nn.kneighbors(normalized_test)
 
-    # 返回最相似的图像
-    top_k_indices = torch.topk(cosine_similarities, top_k).indices
-    top_k_images_path = [candidate_subset_path[idx] for idx in top_k_indices]
+    # 返回最相似的图像路径
+    top_k_images_path = [candidate_subset_path[idx] for idx in indices[0]]
 
     return top_k_images_path

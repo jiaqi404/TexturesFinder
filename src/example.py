@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import random
 from pathlib import Path
 import PIL.Image as Image
+from sklearn.random_projection import SparseRandomProjection
+from sklearn.preprocessing import normalize
+from sklearn.neighbors import NearestNeighbors
 
 # 加载图像编码器
 model_ckpt = "google/vit-base-patch16-224-in21k"
@@ -53,35 +56,48 @@ def extract_embedding(image):
         embedding = model(image).last_hidden_state.mean(dim=1).squeeze().cpu()
     return embedding
 
+# 提取测试图像的特征
+test_embedding = extract_embedding(test_sample)
+
 # 提取候选集中的图像特征
 candidate_embeddings = []
 for image in tqdm(candidate_subset, desc="Extracting candidate embeddings"):
     embedding = extract_embedding(image)
     candidate_embeddings.append(embedding)
 
-candidate_embeddings = torch.stack(candidate_embeddings)
+# 使用随机投影降维以提高效率
+candidate_embeddings = np.stack(candidate_embeddings)
+projector = SparseRandomProjection(n_components=256, random_state=42)
+reduced_candidate_embeddings = projector.fit_transform(candidate_embeddings)
 
-# 提取测试图像的特征
 test_embedding = extract_embedding(test_sample)
+reduced_test_embedding = projector.transform(test_embedding.reshape(1, -1))
 
-# 计算余弦相似度
-cosine_similarities = torch.nn.functional.cosine_similarity(
-    test_embedding.unsqueeze(0), candidate_embeddings
-)
-
-# 显示测试图像和最相似的 5 张图像
 top_k = 5
-top_k_indices = torch.topk(cosine_similarities, top_k).indices
+
+# 使用BallTree计算最相似图像
+normalized_candidates = normalize(reduced_candidate_embeddings, norm="l2")
+normalized_test = normalize(reduced_test_embedding, norm="l2")
+
+nn = NearestNeighbors(
+    n_neighbors=top_k,
+    metric="euclidean",
+    algorithm="ball_tree",
+    n_jobs=-1
+)
+nn.fit(normalized_candidates)
+distances, indices = nn.kneighbors(normalized_test)
 
 fig, axes = plt.subplots(1, top_k + 1, figsize=(20, 5))
 axes[0].imshow(np.array(test_sample))
 axes[0].axis("off")
 axes[0].set_title("Test Image")
 
-for i, idx in enumerate(top_k_indices):
+for i, idx in enumerate(indices[0]):
     axes[i + 1].imshow(np.array(candidate_subset[idx]))
     axes[i + 1].axis("off")
     axes[i + 1].set_title(f"Similar {i+1}")
 
 plt.tight_layout()
 plt.savefig("similar_images.png")
+print("Similar images saved as similar_images.png!")
