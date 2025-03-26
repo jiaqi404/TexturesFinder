@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QPus
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 from utils.transformer_util import fetch_similar, load_model, load_dataset, random_test_image
+import os
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -16,7 +17,7 @@ class MainWindow(QMainWindow):
         # 加载模型与数据集
         self.model, self.extractor, self.device = load_model()
         print("Model loaded")
-        self.candidate_subset = load_dataset()
+        self.candidate_subset_path, self.candidate_subset = load_dataset()
         print("Dataset loaded")
     
     def initUI(self):
@@ -84,7 +85,7 @@ class MainWindow(QMainWindow):
         self.scroll_area = QScrollArea()
         self.scroll_area_widget = QWidget()
         self.scroll_area_layout = QHBoxLayout(self.scroll_area_widget)
-        self.scroll_area_layout.setAlignment(Qt.AlignLeft)  # Align items to the left
+        self.scroll_area_layout.setAlignment(Qt.AlignLeft)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(self.scroll_area_widget)
         self.layout.addWidget(self.scroll_area)
@@ -106,18 +107,29 @@ class MainWindow(QMainWindow):
             pixmap = QPixmap(file_path)
             self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
 
+    def open_image_path(self, path):
+        os.startfile(path)
+
     def find_similar_images(self):
         if not self.selected_image_path:
-            self.image_label.setText("Please select an image first!")
+            self.image_label.setText("请先选择一张贴图")
             return
 
         try:
             param = int(self.param_input.text())
         except ValueError:
-            self.image_label.setText("Please enter a valid integer parameter!")
+            self.image_label.setText("请先输出参数")
             return
 
-        similar_images = fetch_similar(self.model, self.extractor, self.device, self.candidate_subset, self.selected_image_path, param)
+        similar_images_path = fetch_similar(
+            self.model, 
+            self.extractor, 
+            self.device, 
+            self.candidate_subset_path, 
+            self.candidate_subset, 
+            self.selected_image_path, 
+            param
+        )
 
         # 清空过往的相似贴图
         for i in reversed(range(self.scroll_area_layout.count())):
@@ -126,13 +138,12 @@ class MainWindow(QMainWindow):
                 widget.deleteLater()
 
         # 显示相似贴图
-        for similar_image in similar_images:
-            pil_image = similar_image.convert("RGBA")
-            data = pil_image.tobytes("raw", "RGBA")
-            q_image = QImage(data, pil_image.size[0], pil_image.size[1], QImage.Format_RGBA8888)
-            pixmap = QPixmap.fromImage(q_image)
+        for image_path in similar_images_path:
+            pixmap = QPixmap(image_path)
             label = QLabel()
             label.setPixmap(pixmap.scaled(480, 480, Qt.KeepAspectRatio))
+            label.setCursor(Qt.PointingHandCursor)
+            label.mousePressEvent = lambda event, path=image_path: self.open_image_path(path)
             self.scroll_area_layout.addWidget(label)
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ def load_dataset():
     # 加载数据集
     dataset_path = Path("dataset")
     dataset_images = list(dataset_path.glob("*.png"))
+    candidate_subset_path = [str(img_path) for img_path in dataset_images]
     candidate_subset = [Image.open(img_path) for img_path in dataset_images]
 
     # 加载 dataset_expansion/original 下的图片
@@ -27,9 +28,10 @@ def load_dataset():
     expansion_images = list(expansion_path.glob("*.png"))
     for img_path in expansion_images:
         image = Image.open(img_path)
+        candidate_subset_path.append(str(img_path))
         candidate_subset.append(image)
 
-    return candidate_subset
+    return candidate_subset_path, candidate_subset
 
 def random_test_image():
     processed_path = Path("dataset_expansion/processed")
@@ -39,7 +41,7 @@ def random_test_image():
 
     return test_sample
 
-def fetch_similar(model, extractor, device, candidate_subset, test_img_path, top_k):
+def fetch_similar(model, extractor, device, candidate_subset_path, candidate_subset, test_img_path, top_k):
     # 加载测试图像
     test_sample = Image.open(test_img_path)
 
@@ -78,8 +80,8 @@ def fetch_similar(model, extractor, device, candidate_subset, test_img_path, top
         test_embedding.unsqueeze(0), candidate_embeddings
     )
 
-    # 显示测试图像和最相似的图像
+    # 返回最相似的图像
     top_k_indices = torch.topk(cosine_similarities, top_k).indices
-    top_k_images = [candidate_subset[idx] for idx in top_k_indices]
+    top_k_images_path = [candidate_subset_path[idx] for idx in top_k_indices]
 
-    return top_k_images
+    return top_k_images_path
