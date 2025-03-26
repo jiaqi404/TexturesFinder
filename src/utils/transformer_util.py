@@ -31,6 +31,14 @@ def load_dataset():
 
     return candidate_subset
 
+def random_test_image():
+    processed_path = Path("dataset_expansion/processed")
+    processed_images = list(processed_path.glob("*.png"))
+    test_sample_path = random.choice(processed_images)
+    test_sample = Image.open(test_sample_path)
+
+    return test_sample
+
 def fetch_similar(model, extractor, device, candidate_subset, test_img_path, top_k):
     # 加载测试图像
     test_sample = Image.open(test_img_path)
