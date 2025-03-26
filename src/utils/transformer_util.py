@@ -13,8 +13,20 @@ import PIL.Image as Image
 
 def load_model():
     model_ckpt = "google/vit-base-patch16-224-in21k"
-    extractor = AutoFeatureExtractor.from_pretrained(model_ckpt)
-    model = AutoModel.from_pretrained(model_ckpt)
+    model_dir = Path("model")
+    model_dir.mkdir(exist_ok=True)
+
+    # 检查模型是否已保存
+    if not (model_dir / "config.json").exists():
+        extractor = AutoFeatureExtractor.from_pretrained(model_ckpt)
+        model = AutoModel.from_pretrained(model_ckpt)
+        extractor.save_pretrained(model_dir)
+        model.save_pretrained(model_dir)
+    else:
+        extractor = AutoFeatureExtractor.from_pretrained(model_dir)
+        model = AutoModel.from_pretrained(model_dir)
+
+    hidden_dim = model.config.hidden_size
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
 
