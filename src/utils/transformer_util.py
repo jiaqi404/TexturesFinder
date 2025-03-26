@@ -11,9 +11,9 @@ from sklearn.neighbors import NearestNeighbors
 import numpy as np
 import PIL.Image as Image
 
-def load_model():
+def load_model(model_path):
     model_ckpt = "google/vit-base-patch16-224-in21k"
-    model_dir = Path("model")
+    model_dir = Path(model_path)
     model_dir.mkdir(exist_ok=True)
 
     # 检查模型是否已保存
@@ -32,15 +32,15 @@ def load_model():
 
     return model, extractor, device
 
-def load_dataset():
+def load_dataset(dataset_path, expansion_path):
     # 加载数据集
-    dataset_path = Path("dataset")
+    dataset_path = Path(dataset_path)
     dataset_images = list(dataset_path.glob("*.png"))
     candidate_subset_path = [str(img_path) for img_path in dataset_images]
     candidate_subset = [Image.open(img_path) for img_path in dataset_images]
 
     # 加载 dataset_expansion/original 下的图片
-    expansion_path = Path("dataset_expansion/original")
+    expansion_path = Path(expansion_path)
     expansion_images = list(expansion_path.glob("*.png"))
     for img_path in expansion_images:
         image = Image.open(img_path)
@@ -49,8 +49,8 @@ def load_dataset():
 
     return candidate_subset_path, candidate_subset
 
-def random_test_image():
-    processed_path = Path("dataset_expansion/processed")
+def random_test_image(processed_path):
+    processed_path = Path(processed_path)
     processed_images = list(processed_path.glob("*.png"))
     test_sample_path = random.choice(processed_images)
     test_sample = Image.open(test_sample_path)

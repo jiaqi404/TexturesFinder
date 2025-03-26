@@ -2,8 +2,10 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QWidget, QScrollArea, QHBoxLayout
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
-from utils.transformer_util import fetch_similar, load_model, load_dataset, random_test_image
+from src.utils.transformer_util import fetch_similar, load_model, load_dataset, random_test_image
 import os
+
+basedir = os.path.dirname(__file__)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -14,10 +16,18 @@ class MainWindow(QMainWindow):
         # 加载UI
         self.initUI()
 
+        # 设置路径
+        print(basedir)
+        self.model_path = os.path.join(basedir, "model")
+        self.dataset_path = os.path.join(basedir, "dataset")
+        self.expansion_path = os.path.join(basedir, "dataset_expansion/original")
+        self.processed_path = os.path.join(basedir, "dataset_expansion/processed")
+        self.tmp_img_path = os.path.join(basedir, "tmp/test_sample.png")
+
         # 加载模型与数据集
-        self.model, self.extractor, self.device = load_model()
+        self.model, self.extractor, self.device = load_model(self.model_path)
         print("Model loaded")
-        self.candidate_subset_path, self.candidate_subset = load_dataset()
+        self.candidate_subset_path, self.candidate_subset = load_dataset(self.dataset_path, self.expansion_path)
         print("Dataset loaded")
 
     def update_speed_selection(self):
@@ -132,10 +142,10 @@ class MainWindow(QMainWindow):
         self.selected_image_path = None
 
     def random_test_image(self):
-        test_sample = random_test_image()
-        test_sample.save("src/tmp/test_sample.png")
-        self.selected_image_path = "src/tmp/test_sample.png"
-        pixmap = QPixmap("src/tmp/test_sample.png")
+        test_sample = random_test_image(self.processed_path)
+        test_sample.save(self.tmp_img_path)
+        self.selected_image_path = self.tmp_img_path
+        pixmap = QPixmap(self.tmp_img_path)
         self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
 
     def browse_image(self):
