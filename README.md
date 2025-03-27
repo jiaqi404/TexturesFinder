@@ -2,11 +2,11 @@
 
 ## 环境安装
 
-1. 推荐使用 [conda](https://docs.conda.io/en/latest/) 创建虚拟环境，确保使用 **Python 3.12**。
-2. 安装所需库：
-    ```bash
-    pip install -r requirements.txt
-    ```
++ 推荐使用 [conda](https://docs.conda.io/en/latest/) 创建虚拟环境，确保使用 **Python 3.12**。
++ 安装所需库：
+```bash
+pip install -r requirements.txt
+```
 
 ## 使用说明
 
