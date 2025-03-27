@@ -11,7 +11,7 @@ pip install -r requirements.txt
 ## 使用说明
 
 ### 打开前端界面
-运行以下命令以启动前端界面：
+运行以下命令以启动前端界面，初次运行会从huggingface上下载模型，保存在 `model/` 文件夹下：
 ```bash
 python app.py
 ```
