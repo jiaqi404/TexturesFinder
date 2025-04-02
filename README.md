@@ -1,34 +1,46 @@
 # TexturesFinder
 
-## 环境安装
+**TexturesFinder** is a tool for fast and accurate matching in texture databases using computer vision and similarity search algorithms. Users can input a local texture or randomly select a test image, set parameters, and search for similar textures within a dataset of 220 textures. Retrieved textures can be opened directly from their local paths for further operations.
 
-+ 推荐使用 [conda](https://docs.conda.io/en/latest/) 创建虚拟环境，确保使用 **Python 3.12**。
-+ 安装所需库：
+## Technical Implementation
+- **Feature Extraction**: Uses [google/vit-base-patch16-224-in21k](https://huggingface.co/google/vit-base-patch16-224-in21k).
+- **Dataset**: Uses [dream-textures/textures-color-normal-1k](https://huggingface.co/datasets/dream-textures/textures-color-normal-1k).
+- **Similarity Search**: Employs sklearn Ball Tree algorithm with Euclidean distance for efficient nearest-neighbor retrieval.
+![Alt text](assets/flow.png)
+
+## Getting Started
+
+### Prerequisites
+Create a Conda environment with **Python 3.12**:
+```bash
+conda create -n texturesfinder python=3.12
+conda activate texturesfinder
+```
+
+### Installation
+Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## 使用说明
+## Usage
 
-### 打开前端界面
-运行以下命令以启动前端界面，初次运行会从huggingface上下载模型，保存在 `model/` 文件夹下：
+### Launch GUI Application
+Run the following command to start the front-end interface based on PyQt5. The first run will download the model from huggingface and save it in the `model/` folder.
 ```bash
 python app.py
 ```
+![Alt text](assets/Textures%20Finder%202025_3_26%2017_35_14.png)
 
-### 获取随机图像的相似图像对比图
-无需打开前端界面，直接运行以下命令：
+### Get Random Similarity Search Result
+Without opening the front-end interface, run the following command directly:
 ```bash
 python src/example.py
 ```
+![Alt text](results/similar_images_1.png)
 
-### 打包为可执行文件
-使用 `pyinstaller` 打包软件，生成 `.exe` 文件：
+### Build Executable
+Package into standalone EXE with PyInstaller:
 ```bash
-pyinstaller app.spec
+pyinstaller app.spec # Outputs to `dist/` folder
 ```
-
-## 注意事项
-- 确保所有依赖已正确安装。
-- 打包后生成的 `.exe` 文件位于 `dist` 目录下。
-- 如有问题，请检查日志或依赖版本是否匹配。
